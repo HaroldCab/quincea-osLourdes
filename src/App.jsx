@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import quincePhoto from './DSC03916 v2.jpg';
 
 const eventDate = new Date('2026-10-17T18:00:00-06:00');
 const eventDateLabel = new Intl.DateTimeFormat('es-MX', {
@@ -90,6 +91,101 @@ function Countdown() {
   );
 }
 
+function playMelodyPhrase(context) {
+  const notes = [587.33, 739.99, 880, 739.99, 659.25, 783.99, 987.77, 783.99];
+  const startTime = context.currentTime + 0.04;
+
+  notes.forEach((frequency, index) => {
+    const noteStart = startTime + index * 0.82;
+    const noteEnd = noteStart + 1.1;
+    const volume = context.createGain();
+    const fundamental = context.createOscillator();
+    const overtone = context.createOscillator();
+
+    fundamental.type = 'sine';
+    fundamental.frequency.value = frequency;
+    overtone.type = 'sine';
+    overtone.frequency.value = frequency * 2;
+
+    volume.gain.setValueAtTime(0.0001, noteStart);
+    volume.gain.exponentialRampToValueAtTime(0.035, noteStart + 0.09);
+    volume.gain.exponentialRampToValueAtTime(0.0001, noteEnd);
+
+    fundamental.connect(volume);
+    overtone.connect(volume);
+    volume.connect(context.destination);
+    fundamental.start(noteStart);
+    overtone.start(noteStart);
+    fundamental.stop(noteEnd);
+    overtone.stop(noteEnd);
+  });
+}
+
+function MusicToggle() {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [error, setError] = useState('');
+  const audioContext = useRef(null);
+  const melodyTimer = useRef(null);
+
+  useEffect(() => () => {
+    window.clearInterval(melodyTimer.current);
+    audioContext.current?.close();
+  }, []);
+
+  async function toggleMusic() {
+    setError('');
+
+    if (isPlaying) {
+      window.clearInterval(melodyTimer.current);
+      melodyTimer.current = null;
+      await audioContext.current?.close();
+      audioContext.current = null;
+      setIsPlaying(false);
+      return;
+    }
+
+    try {
+      const AudioContext = window.AudioContext;
+      if (!AudioContext) {
+        throw new Error('Este navegador no permite reproducir la melodía.');
+      }
+
+      const context = new AudioContext();
+      audioContext.current = context;
+      await context.resume();
+      playMelodyPhrase(context);
+      melodyTimer.current = window.setInterval(() => {
+        playMelodyPhrase(context);
+      }, 7000);
+      setIsPlaying(true);
+    } catch (playbackError) {
+      window.clearInterval(melodyTimer.current);
+      melodyTimer.current = null;
+      await audioContext.current?.close();
+      audioContext.current = null;
+      console.error('No se pudo iniciar la música de la invitación.', playbackError);
+      setError('No se pudo activar la música. Intenta de nuevo.');
+    }
+  }
+
+  return (
+    <div className="music-control">
+      <p className="music-control__label">Dale play para escuchar la canción</p>
+      <span className="music-control__rule" aria-hidden="true" />
+      <button
+        className="music-control__button"
+        type="button"
+        aria-pressed={isPlaying}
+        aria-label={isPlaying ? 'Pausar música' : 'Activar música'}
+        onClick={toggleMusic}
+      >
+        <span aria-hidden="true">{isPlaying ? 'Ⅱ' : '▶'}</span>
+      </button>
+      {error && <span className="music-control__error" role="alert">{error}</span>}
+    </div>
+  );
+}
+
 function getTimeRemaining() {
   const difference = Math.max(0, eventDate.getTime() - Date.now());
   const totalSeconds = Math.floor(difference / 1000);
@@ -104,164 +200,78 @@ function getTimeRemaining() {
 
 function App() {
   return (
-    <>
-      <header className="site-header">
-        <a className="brand" href="#inicio" aria-label="Inicio">
-          <span className="brand__monogram">L</span>
-          <span className="brand__text">Mis XV años</span>
-        </a>
-        <nav className="site-nav" aria-label="Navegación principal">
-          <a href="#celebracion">La celebración</a>
-          <a href="#detalles">Detalles</a>
-        </nav>
-      </header>
-
-      <main>
-        <section className="hero" id="inicio">
-          <div className="hero__photo" />
-          <div className="hero__wash" />
-          <div className="hero__frame" />
-          <div className="hero__content">
-            <span className="eyebrow hero__eyebrow">
-              <span className="eyebrow__line" />
-              Una noche para recordar
-              <span className="eyebrow__line" />
-            </span>
-            <p className="hero__invite">Con mucha ilusión te invito a celebrar</p>
-            <h1>
-              Mis quince
-              <span className="hero__name">Lourdes</span>
+    <main className="invitation" id="inicio">
+      <section className="hero" aria-labelledby="invitation-title">
+        <div className="hero__frame">
+          <div className="hero__caption">
+            <span className="eyebrow">MIS</span>
+            <h1 id="invitation-title">
+              <span>15 años</span>
             </h1>
-            <span className="hero__ornament" aria-hidden="true">
-              ✧
-            </span>
-            <p className="hero__date">{eventDateLabel}</p>
-            <a className="button button--light" href="#detalles">
-              Descubre los detalles <span aria-hidden="true">↓</span>
-            </a>
-          </div>
-          <a className="hero__scroll" href="#celebracion" aria-label="Desliza para continuar">
-            <span />
-          </a>
-        </section>
-
-        <section className="intro section-pad" id="celebracion">
-          <div className="intro__flower intro__flower--left" aria-hidden="true">
-            ✳
-          </div>
-          <div className="intro__flower intro__flower--right" aria-hidden="true">
-            ✳
-          </div>
-          <span className="eyebrow eyebrow--rose">Un sueño hecho realidad</span>
-          <h2>
-            Quince años, mil sueños
-            <br />
-            <em>y una noche contigo.</em>
-          </h2>
-          <p className="intro__copy">
-            Hay momentos que brillan para siempre. Me encantaría compartir este
-            capítulo tan especial de mi vida con las personas que más quiero.
-          </p>
-          <div className="divider" aria-hidden="true">
-            <span />
-            <Icon name="sparkle" size={18} />
-            <span />
-          </div>
-          <p className="intro__signature">Lourdes</p>
-        </section>
-
-        <section className="countdown-section">
-          <div className="countdown-section__image" />
-          <div className="countdown-section__content">
-            <span className="eyebrow eyebrow--light">La cuenta regresiva comienza</span>
-            <h2>Falta muy poco</h2>
-            <Countdown />
-            <p>para celebrar juntos una noche mágica</p>
-          </div>
-        </section>
-
-        <section className="details section-pad" id="detalles">
-          <div className="details__heading">
-            <span className="eyebrow eyebrow--rose">Nos vemos pronto</span>
-            <h2>Detalles de la celebración</h2>
-            <p>Guarda la fecha y prepárate para brindar, bailar y celebrar.</p>
-          </div>
-          <div className="details__grid">
-            <article className="detail-card">
-              <span className="detail-card__icon">
-                <Icon name="calendar" size={23} />
-              </span>
-              <span className="detail-card__label">¿Cuándo?</span>
-              <h3>{eventDateLabel}</h3>
-              <p>Recepción a partir de las 6:00 p. m.</p>
-            </article>
-            <article className="detail-card">
-              <span className="detail-card__icon">
-                <Icon name="pin" size={23} />
-              </span>
-              <span className="detail-card__label">¿Dónde?</span>
-              <h3>Domicilio de la quinceañera</h3>
-            </article>
-            <article className="detail-card">
-              <span className="detail-card__icon">
-                <Icon name="clock" size={23} />
-              </span>
-              <span className="detail-card__label">Itinerario</span>
-              <h3>Una noche especial</h3>
-              <p>Recepción · 6:00 p. m.</p>
-              <p>Vals y cena · 7:00 p. m.</p>
-              <p>¡Que comience la fiesta! · 9:00 p. m.</p>
-            </article>
-          </div>
-        </section>
-
-        <section className="dress-code">
-          <div className="dress-code__content">
-            <span className="eyebrow eyebrow--rose">El toque perfecto</span>
-            <h2>Una noche de gala</h2>
-            <p>
-              Viste elegante y ven listo para celebrar. El color rosa queda
-              reservado para la quinceañera.
-            </p>
-            <div className="dress-code__swatches" aria-label="Paleta sugerida">
-              <span className="swatch swatch--champagne" />
-              <span className="swatch swatch--sage" />
-              <span className="swatch swatch--plum" />
-              <span className="dress-code__hint">Elegante · Formal</span>
+            <div className="hero__title-divider" aria-hidden="true">
+              <span />
+              <span className="hero__title-heart">♥</span>
+              <span />
             </div>
+            <p className="hero__name">Lourdes</p>
           </div>
-          <div
-            className="dress-code__photo"
-            role="img"
-            aria-label="Decoración elegante con flores para una celebración"
-          />
-        </section>
-
-        <section className="closing">
-          <div className="closing__sparkle closing__sparkle--one" aria-hidden="true">
-            ✧
+          <div className="hero__portrait">
+            <div className="hero__photo">
+              <img src={quincePhoto} alt="Lourdes con su vestido de quinceañera" />
+            </div>
+            <span className="hero__diamond hero__diamond--top" aria-hidden="true" />
+            <span className="hero__diamond hero__diamond--bottom" aria-hidden="true" />
           </div>
-          <div className="closing__sparkle closing__sparkle--two" aria-hidden="true">
-            ✧
-          </div>
-          <span className="eyebrow eyebrow--light">Una noche para celebrar</span>
-          <h2>¡Te espero!</h2>
-          <p>
-            Será una noche llena de alegría, música y momentos inolvidables.
-            <br />
-            Me encantará celebrar mis quince contigo.
-          </p>
-        </section>
-      </main>
-
-      <footer className="footer">
-        <a className="footer__monogram" href="#inicio" aria-label="Volver al inicio">
-          L
+          <MusicToggle />
+          <p className="hero__date">{eventDateLabel}</p>
+        </div>
+        <a className="hero__scroll" href="#celebracion" aria-label="Desliza para continuar">
+          <span />
         </a>
-        <p>Con cariño, Lourdes</p>
-        <span>Mis XV años · 2026</span>
-      </footer>
-    </>
+      </section>
+
+      <section className="parents paper-section" id="celebracion">
+        <div className="ornament ornament--top" aria-hidden="true">✧</div>
+        <p className="parents__quote">
+          “Hoy dejo atrás mi niñez para comenzar una nueva etapa llena de sueños,
+          ilusiones y esperanza. Agradezco a Dios y a mi familia por acompañarme
+          en este momento tan especial: mis 15 años.”
+        </p>
+        <div className="divider" aria-hidden="true"><span /><Icon name="sparkle" size={20} /><span /></div>
+        <p className="parents__label">Mis padres</p>
+        <p className="parents__signature">Herminia y David</p>
+        <div className="ornament ornament--bottom" aria-hidden="true">✧</div>
+      </section>
+
+      <section className="event paper-section" id="detalles">
+        <div className="event__frame">
+          <span className="eyebrow">Tengo el agrado de invitarte</span>
+          <p className="event__intro">a celebrar conmigo</p>
+          <p className="event__day">{new Intl.DateTimeFormat('es-MX', { weekday: 'long' }).format(eventDate)}</p>
+          <p className="event__number">{new Intl.DateTimeFormat('es-MX', { day: '2-digit' }).format(eventDate)}</p>
+          <p className="event__month">
+            {new Intl.DateTimeFormat('es-MX', { month: 'long', year: 'numeric' }).format(eventDate)}
+          </p>
+          <div className="divider" aria-hidden="true"><span /><Icon name="sparkle" size={20} /><span /></div>
+          <p className="event__venue">Domicilio de la quinceañera</p>
+          <p className="event__time"><Icon name="clock" size={17} /> Recepción a las 6:00 p. m.</p>
+        </div>
+      </section>
+
+      <section className="countdown-section paper-section">
+        <span className="eyebrow">La cuenta regresiva comienza</span>
+        <h2>Falta muy poco</h2>
+        <Countdown />
+        <p>para celebrar juntos una noche mágica</p>
+      </section>
+
+      <section className="closing paper-section">
+        <span className="eyebrow">Con mucha ilusión</span>
+        <h2>¡Te espero!</h2>
+        <p>Será un honor compartir contigo este momento tan especial.</p>
+        <span className="closing__signature">Lourdes</span>
+      </section>
+    </main>
   );
 }
 
